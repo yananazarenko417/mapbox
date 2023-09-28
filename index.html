@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Display a globe on a webpage</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.11.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.11.0/mapbox-gl.js"></script>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100% }
+        #map { width: 100%; height: 100%; flex-grow: 1 }
+        #container { display: flex; height: 100% }
+        #sidebar { flex-shrink: 0; width: 300px; text-align: center; padding: 20px; }
+        button { margin-top: 20px; display: block; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <button id="update-button">Update color (Brooklyn)</button>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoieWFuYS1uYXphcmVua28iLCJhIjoiY2xtcDJhem8xMTRxMDJ5bjFrcHYwNWdjdCJ9.ctkTNVphlN3-VeleuLEzzw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-73.94, 40.75], // Initial map center coordinates
+            zoom: 10 // Initial zoom level
+        });
+
+        function updateBoroughColorByName(boroughName, newColor) {
+            // Fetch the GeoJSON data
+            fetch('/data/borough-boundaries.geojson')
+                .then(response => response.json())
+                .then(geojsonData => {
+                    // Find the borough feature with the specified "boroname"
+                    const feature = geojsonData.features.find(feature => feature.properties.boroname === boroughName);
+
+                    if (feature) {
+                        // Update the feature's properties (color in this case)
+                        feature.properties.fill = newColor;
+
+                        // Update the data for the 'boroughs' source with the modified GeoJSON
+                        map.getSource('boroughs').setData(geojsonData);
+
+                        // API Integration: Send the updated data to your backend
+                        saveUpdatedDataToBackend(feature);
+                    }
+                });
+        }
+
+        function resetBoroughColor(boroughName) {
+            // Reset Brooklyn's color to the initial color on button click
+            updateBoroughColorByName(boroughName, '#FF5733'); // Change back to the initial color
+        }
+
+        // API Integration: Function to save updated data to your backend (placeholder)
+        function saveUpdatedDataToBackend(updatedFeature) {
+            // This is a placeholder. You need to implement your actual API logic here
+            const apiUrl = '/api/updateBoroughColor'; // Replace with your API endpoint
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedFeature),
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API request failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Data saved to backend:', data);
+                })
+                .catch(error => {
+                    console.error('Error saving data to backend:', error);
+                });
+        }
+
+        document.getElementById('update-button').addEventListener('click', function () {
+            // Update Brooklyn's color to a different one on button click
+            updateBoroughColorByName('Brooklyn', '#FF5733'); // Change to red
+        });
+
+        // Add the GeoJSON data to the map as a source
+        map.on('load', function () {
+            map.addSource('boroughs', {
+                type: 'geojson',
+                data: '/data/borough-boundaries.geojson' // Path to your GeoJSON file
+            });
+
+            // Add a layer to display borough boundaries
+            map.addLayer({
+                id: 'borough-boundaries',
+                type: 'fill',
+                source: 'boroughs',
+                paint: {
+                    'fill-color': {
+                        type: 'identity',
+                        property: 'fill' // Fill color property from GeoJSON properties
+                    },
+                    'fill-opacity': 0.5, // Adjust the fill opacity as needed
+                    'fill-outline-color': 'rgba(0, 0, 0, 1)'
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
